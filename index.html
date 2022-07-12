@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Minesweeper</title>
+  </head>
+  <body>
+    <canvas id="game-canvas" width="900" height="800"></canvas>
+    <script>
+      let canvas = document.getElementById("game-canvas");
+      let context = canvas.getContext("2d");
+      
+      let fillRect = (x,y,w,h,r,g,b,a) =>{
+        let toHex = (n) => Number(n).toString(16).padStart(2,"0");
+        context.fillStyle = "#" + toHex(r) + toHex(g) + toHex(b) + toHex(a);
+        context.fillRect(x,y,w,h);
+      }
+
+      (async () => {
+        let response = await fetch('minesweeper_rust_wasm.wasm');
+        let { instance } = await WebAssembly.instantiateStreaming(response, {
+          "env": {
+            "fillRect" : fillRect,
+            "fillNum": (x,y,num) => console.log("Not Implemented ### Filling Number: ",x,y,num),
+            "rand": (max) => Math.floor((Math.random() * max) + 1)
+          }
+
+         });
+
+        //console.log('The answer is: ', instance.exports.add_one(13));
+        let game = instance.exports.init(800,800,40);
+        console.log("Game pointer in memory: ", game);
+        instance.exports.render(game);
+        console.log(instance)
+      })();
+    </script>
+  </body>
+</html>
