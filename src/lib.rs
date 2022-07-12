@@ -40,7 +40,7 @@ pub struct Minesweeper {
 impl Minesweeper {
     fn get_empty_cell(&mut self) -> (usize, usize) {
         let total_cells = self.rows * self.cols;
-        let num = unsafe { rand(total_cells) };
+        let num = unsafe { rand(total_cells-1) };
         let row = num / self.cols;
         let col = num % self.cols;
 
