@@ -17,7 +17,7 @@ fn fill_num(x: i32, y: i32, num: i32) {
     }
 }
 
-fn info(text: &str){
+fn info(text: &str) {
     unsafe {
         print(text);
     }
@@ -53,8 +53,16 @@ pub struct Minesweeper {
     cells: Vec<Vec<Cell>>,
     cell_border: i32,
     bomb_percent: usize,
+    generated: bool,
 }
 
+fn abs(num: i32) -> i32 {
+    if num < 0 {
+        num * -1
+    } else {
+        num
+    }
+}
 impl Minesweeper {
     fn get_empty_cell(&mut self) -> (usize, usize) {
         let total_cells = self.rows * self.cols;
@@ -68,15 +76,20 @@ impl Minesweeper {
 
         return self.get_empty_cell();
     }
-
-    fn generate_bombs(&mut self) {
+    fn generate_bombs(&mut self, c_row: usize, c_col: usize) {
         let total_cells = self.rows * self.cols;
         let mut no_of_bombs = total_cells * self.bomb_percent / 100;
 
         while no_of_bombs > 0 {
             let (row, col) = self.get_empty_cell();
-            self.cells[row][col].cell_type = CellType::Bomb;
-            no_of_bombs -= 1;
+
+            match (row, col) {
+                i if abs(i.0 as i32 - c_row as i32) < 2 && abs(i.1 as i32  - c_col as i32) < 2 => continue,
+                _ => {
+                    self.cells[row][col].cell_type = CellType::Bomb;
+                    no_of_bombs -= 1;
+                }
+            }
         }
 
         for row in 0..self.rows {
@@ -84,6 +97,7 @@ impl Minesweeper {
                 self.cells[row][col].bomb_neighbours = self.neighbours_with_bombs(row, col);
             }
         }
+        self.generated = true;
     }
 
     fn neighbours_with_bombs(&self, row: usize, col: usize) -> i32 {
@@ -129,26 +143,24 @@ impl Minesweeper {
 
         for row_offset in -1..2 {
             for col_offset in -1..2 {
-
-                if row_offset ==0 && col_offset ==0 {
+                if row_offset == 0 && col_offset == 0 {
                     continue;
                 }
 
                 match self.clamp(row as i32 + row_offset, col as i32 + col_offset) {
                     Some(c) => {
                         let cell = &mut self.cells[c.0][c.1];
-                        
-                        match (&cell.state,&cell.cell_type, cell.bomb_neighbours) {
+
+                        match (&cell.state, &cell.cell_type, cell.bomb_neighbours) {
                             d if d.0 == &CellState::Open => continue,
                             d if d.1 == &CellType::Bomb => continue,
                             d if d.2 > 0 => cell.state = CellState::Open,
-                            d if d.2 == 0 =>{
+                            d if d.2 == 0 => {
                                 cell.state = CellState::Open;
                                 self.open_cell(c.0, c.1);
-                            },
-                            _ => continue
+                            }
+                            _ => continue,
                         }
-
                     }
                     None => continue,
                 }
@@ -157,10 +169,13 @@ impl Minesweeper {
     }
 
     fn mark_cell(&mut self, row: usize, col: usize) {
-
-
-        if self.cells[row][col].state != CellState::Open {
-            self.cells[row][col].state = CellState::Marked;
+        match self.clamp(row as i32, col as i32) {
+            Some(i) => match &mut self.cells[i.0][i.1] {
+                c if c.state == CellState::Marked => c.state = CellState::Close,
+                c if c.state == CellState::Close => c.state = CellState::Marked,
+                _ => return,
+            },
+            _ => return,
         }
     }
 
@@ -258,9 +273,9 @@ pub extern "C" fn init(screen_height: i32, screen_width: i32, cell_size: i32) ->
         cells: cells,
         cell_border: 2,
         bomb_percent: 15,
+        generated: false,
     };
 
-    game.generate_bombs();
     return Box::into_raw(Box::new(game));
 }
 
@@ -276,6 +291,10 @@ pub extern "C" fn render(game: *mut Minesweeper) {
 #[no_mangle]
 pub extern "C" fn open_cell(game: *mut Minesweeper, row: usize, col: usize) {
     let game = unsafe { &mut *game };
+
+    if !game.generated {
+        game.generate_bombs(row, col);
+    }
 
     game.open_cell(row, col);
 }
