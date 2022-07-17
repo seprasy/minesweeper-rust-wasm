@@ -179,6 +179,13 @@ impl Minesweeper {
         }
     }
 
+    fn get_cell(&mut self, row:usize, col:usize) -> Option<&mut Cell> {
+       match self.clamp(row as i32, col as i32) {
+        Some(i) => Some(&mut self.cells[i.0][i.1]),
+        _ => None
+       }
+    }
+
     fn render(&self) {
         for row in 0..self.rows {
             for col in 0..self.cols {
@@ -247,6 +254,16 @@ impl Minesweeper {
             }
         }
     }
+
+    fn reset(&mut self){
+        self.generated = false;
+        self.cells.iter_mut()
+        .for_each(|r| r.iter_mut().for_each(|c|  {
+            c.bomb_neighbours = 0;
+            c.cell_type = CellType::None;
+            c.state = CellState::Close
+        }))
+    }
 }
 
 #[no_mangle]
@@ -264,7 +281,7 @@ pub extern "C" fn init(screen_height: i32, screen_width: i32, cell_size: i32) ->
         ];
         rows
     ];
-    let mut game = Minesweeper {
+    let game = Minesweeper {
         screen_height: screen_height,
         screen_width: screen_width,
         cell_size: cell_size,
@@ -288,15 +305,36 @@ pub extern "C" fn render(game: *mut Minesweeper) {
     game.render();
 }
 
+
 #[no_mangle]
-pub extern "C" fn open_cell(game: *mut Minesweeper, row: usize, col: usize) {
+pub extern "C" fn open_bombs(game: *mut Minesweeper) {
+    let game = unsafe { &mut *game };
+
+    for row in game.cells.iter_mut() {
+        for cell in row.iter_mut() {
+            if cell.cell_type == CellType:: Bomb {
+                cell.state = CellState::Open;
+            }
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn open_cell(game: *mut Minesweeper, row: usize, col: usize) -> i32 {
     let game = unsafe { &mut *game };
 
     if !game.generated {
         game.generate_bombs(row, col);
     }
-
-    game.open_cell(row, col);
+    match game.get_cell(row,col) {
+        Some(c) if c.cell_type == CellType::Bomb => {
+            return 1;
+        },
+        Some(_) => game.open_cell(row, col),
+        None => return 0
+    }
+    
+    return 0;
 }
 
 #[no_mangle]
@@ -304,4 +342,12 @@ pub extern "C" fn mark_cell(game: *mut Minesweeper, row: usize, col: usize) {
     let game = unsafe { &mut *game };
 
     game.mark_cell(row, col);
+}
+
+
+#[no_mangle]
+pub extern "C" fn reset(game: *mut Minesweeper) {
+    let game = unsafe { &mut *game };
+
+    game.reset();
 }

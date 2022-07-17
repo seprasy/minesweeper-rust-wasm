@@ -43,16 +43,25 @@
 
       // Open Cell
       canvas.addEventListener("click", (e) => {
-        instance.exports.open_cell(game, Math.floor(e.offsetY / cellSize), Math.floor(e.offsetX / cellSize));
+        let result = instance.exports.open_cell(game, Math.floor(e.offsetY / cellSize), Math.floor(e.offsetX / cellSize));
+        console.log(result);
+        if (result > 0) {
+          window.requestAnimationFrame((x) => {
+
+            instance.exports.open_bombs(game);
+            instance.exports.render(game);
+          })
+          //alert("Game Over!");
+          //instance.exports.reset(game);
+        }
+
         instance.exports.render(game);
-        console.log(e)
       });
       // Mark Cell
       canvas.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         instance.exports.mark_cell(game, Math.floor(e.offsetY / cellSize), Math.floor(e.offsetX / cellSize));
         instance.exports.render(game);
-        console.log(e)
       });
     })();
   </script>
