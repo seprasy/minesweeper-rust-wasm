@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Minesweeper</title>
+</head>
+
+<body>
+  <canvas id="game-canvas" width="900" height="800"></canvas>
+  <script>
+    let canvas = document.getElementById("game-canvas");
+    let context = canvas.getContext("2d");
+    let fillRect = (x, y, w, h, r, g, b, a) => {
+      let toHex = (n) => Number(n).toString(16).padStart(2, "0");
+      context.fillStyle = "#" + toHex(r) + toHex(g) + toHex(b) + toHex(a);
+      context.fillRect(x, y, w, h);
+    }
+
+    let fillNumber = (x, y, num) => {
+      context.fillStyle = "red";
+      context.font = "30px Verdana";
+      context.fillText(num, x, y, 30);
+    }
+
+    (async () => {
+      let response = await fetch('minesweeper_rust_wasm.wasm');
+      let { instance } = await WebAssembly.instantiateStreaming(response, {
+        "env": {
+          "fillRect": fillRect,
+          "fillNum": fillNumber,
+          "rand": (max) => Math.floor((Math.random() * max) + 1)
+        }
+
+      });
+
+      //console.log('The answer is: ', instance.exports.add_one(13));
+      let cellSize = 40;
+      let game = instance.exports.init(800, 800, cellSize);
+      console.log("Game pointer in memory: ", game);
+      instance.exports.render(game);
+      console.log(instance)
+
+      // Open Cell
+      canvas.addEventListener("click", (e) => {
+        let result = instance.exports.open_cell(game, Math.floor(e.offsetY / cellSize), Math.floor(e.offsetX / cellSize));
+        console.log(result);
+        if (result > 0) {
+          window.requestAnimationFrame((x) => {
+
+            instance.exports.open_bombs(game);
+            instance.exports.render(game);
+          })
+          //alert("Game Over!");
+          //instance.exports.reset(game);
+        }
+
+        instance.exports.render(game);
+      });
+      // Mark Cell
+      canvas.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        instance.exports.mark_cell(game, Math.floor(e.offsetY / cellSize), Math.floor(e.offsetX / cellSize));
+        instance.exports.render(game);
+      });
+    })();
+  </script>
+</body>
+
+</html>
